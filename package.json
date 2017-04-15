@@ -2,7 +2,7 @@
     "name": "whiteviz",
     "displayName": "WhiteViz",
     "description": "An extension for whitespace visualization",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "publisher": "spywhere",
     "icon": "images/icon.png",
     "bugs": {
@@ -53,13 +53,13 @@
                     "type": "string",
                     "pattern": "^.+$",
                     "default": " \u00A0\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A\u202F\u205F\u3000\u200B\u200C\u200D\u2060",
-                    "description": "A RegExp string to match whitespace characters."
+                    "description": "A set of characters to match whitespace characters."
                 },
                 "whiteviz.tabPattern": {
                     "type": "string",
                     "pattern": "^.+$",
                     "default": "\t",
-                    "description": "A RegExp string to match tab characters."
+                    "description": "A set of characters to match tab characters."
                 },
                 "whiteviz.spaceIndicator": {
                     "type": "string",
@@ -72,6 +72,11 @@
                     "pattern": "^.$",
                     "default": "→",
                     "description": "Tab indicator symbol."
+                },
+                "whiteviz.overrideDefault": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Suppress suggestions / detections toward default Visual Studio Code settings."
                 }
             }
         }

@@ -37,6 +37,8 @@ class WhiteViz {
     private spacePattern = " ";
     private tabPattern = "\t";
     private visualizeOnlyIndentation = false;
+    private overrideDefault = false;
+    private disableExtension = false;
 
     constructor(){
         this.updateConfigurations();
@@ -55,6 +57,24 @@ class WhiteViz {
         this.clearDecorations();
 
         let configurations = vscode.workspace.getConfiguration("whiteviz");
+        this.overrideDefault = configurations.get<boolean>("overrideDefault");
+
+        let editorConfigurations = vscode.workspace.getConfiguration("editor");
+        let renderWhitespace = editorConfigurations.get<string>(
+            "renderWhitespace"
+        );
+
+        this.disableExtension = (
+            !this.overrideDefault && renderWhitespace !== "none"
+        );
+
+        if (this.disableExtension) {
+            vscode.window.showInformationMessage(
+                `WhiteViz detected that you set "editor.renderWhitespace" to "${
+                    renderWhitespace
+                }". The extension will now disabled.`
+            );
+        }
 
         this.visualizeOnlyIndentation = configurations.get<boolean>(
             "visualizeOnlyIndentation"
@@ -117,23 +137,35 @@ class WhiteViz {
              )
         );
 
-        this.updateDecorations();
+        if (!this.disableExtension) {
+            this.updateDecorations();
+        }
     }
 
     clearDecorations(){
-        vscode.window.visibleTextEditors.forEach((editor) => {
-            if (this.whitespaceDecoration) {
-                editor.setDecorations(this.whitespaceDecoration, []);
-            }
-        });
+        vscode.window.visibleTextEditors.forEach(this.clearEditor, this);
+    }
+
+    clearEditor(editor: vscode.TextEditor){
+        if (this.whitespaceDecoration) {
+            editor.setDecorations(this.whitespaceDecoration, []);
+        }
+        if (this.tabDecoration) {
+            editor.setDecorations(this.tabDecoration, []);
+        }
     }
 
     updateDecorations(){
+        if (!this.whitespaceDecoration || this.disableExtension) {
+            this.clearDecorations();
+            return;
+        }
         vscode.window.visibleTextEditors.forEach(this.updateEditor, this);
     }
 
     updateEditor(editor: vscode.TextEditor){
-        if (!this.whitespaceDecoration) {
+        if (!this.whitespaceDecoration || this.disableExtension) {
+            this.clearEditor(editor);
             return;
         }
         let whitespaceRanges: vscode.Range[] = [];
