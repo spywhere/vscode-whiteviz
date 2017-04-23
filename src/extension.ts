@@ -55,7 +55,7 @@ class WhiteViz {
 
     updateConfigurations(){
         this.clearDecorations();
-
+ 
         let configurations = vscode.workspace.getConfiguration("whiteviz");
         this.overrideDefault = configurations.get<boolean>("overrideDefault");
 
@@ -79,13 +79,20 @@ class WhiteViz {
         this.visualizeOnlyIndentation = configurations.get<boolean>(
             "visualizeOnlyIndentation"
         );
-        let spaceIndicator = configurations.get<string>("spaceIndicator");
-        let tabIndicator = configurations.get<string>("tabIndicator");
 
-        let darkColor = configurations.get<string>(
+        const editorTabSize = parseInt(editorConfigurations.get<string>("tabSize"));
+
+        const spaceIndicator = configurations.get<string>("spaceIndicator");
+        const tabIndicator = editorTabSize % 4 === 0 ?
+            "⸻".repeat(editorTabSize/4)
+            : editorTabSize % 2 === 0
+                ? "⸺"
+                : "—"; //;
+
+        const darkColor = configurations.get<string>(
             "color.dark", configurations.get<string>("color")
         );
-        let lightColor = configurations.get<string>(
+        const lightColor = configurations.get<string>(
             "color.light", configurations.get<string>("color")
         );
 
@@ -94,7 +101,8 @@ class WhiteViz {
         );
         this.tabPattern = configurations.get<string>("tabPattern");
 
-        let margin = "0ch -1ch 0ch 0ch";
+        const spaceMargin = "0 -1ch 0 0";
+        const tabMargin = `0 -${editorTabSize}ch 0 0`;
 
         this.whitespaceDecoration = (
             vscode.window.createTextEditorDecorationType(
@@ -102,14 +110,14 @@ class WhiteViz {
                     light: {
                         before: {
                             contentText: spaceIndicator,
-                            margin: margin,
+                            margin: spaceMargin,
                             color: lightColor
                         }
                     },
                     dark: {
                         before: {
                             contentText: spaceIndicator,
-                            margin: margin,
+                            margin: spaceMargin,
                             color: darkColor
                         }
                     }
@@ -122,14 +130,14 @@ class WhiteViz {
                     light: {
                         before: {
                             contentText: tabIndicator,
-                            margin: margin,
+                            margin: tabMargin,
                             color: lightColor
                         }
                     },
                     dark: {
                         before: {
                             contentText: tabIndicator,
-                            margin: margin,
+                            margin: tabMargin,
                             color: darkColor
                         }
                     }
