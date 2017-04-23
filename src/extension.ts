@@ -55,7 +55,7 @@ class WhiteViz {
 
     updateConfigurations(){
         this.clearDecorations();
- 
+
         let configurations = vscode.workspace.getConfiguration("whiteviz");
         this.overrideDefault = configurations.get<boolean>("overrideDefault");
 

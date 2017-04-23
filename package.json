@@ -68,7 +68,7 @@
                     "pattern": "^.$",
                     "default": "·",
                     "description": "Space indicator symbol."
-                },                
+                },
                 "whiteviz.tabIndicator": {
                     "type": "string",
                     "pattern": "^.$",
