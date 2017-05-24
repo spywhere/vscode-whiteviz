@@ -2,25 +2,25 @@
 import * as vscode from "vscode";
 
 export function activate(context: vscode.ExtensionContext) {
-    let whiteViz = new WhiteViz();
-    context.subscriptions.push(whiteViz);
-    context.subscriptions.push(new WhiteVizController(whiteViz));
+    const whiteSpace = new WhiteSpace();
+    context.subscriptions.push(whiteSpace);
+    context.subscriptions.push(new WhiteSpaceController(whiteSpace));
 }
 
-class WhiteVizController {
-    private whiteViz: WhiteViz;
+class WhiteSpaceController {
+    private whiteSpace: WhiteSpace;
     private disposable: vscode.Disposable;
     private lastLine: number = undefined;
 
-    constructor(whiteViz: WhiteViz){
-        this.whiteViz = whiteViz;
+    constructor(whiteSpace: WhiteSpace){
+        this.whiteSpace = whiteSpace;
 
-        let subscriptions: vscode.Disposable[] = [];
-        vscode.workspace.onDidChangeConfiguration(() => {
-            this.whiteViz.updateConfigurations();
-        }, this, subscriptions);
-        vscode.window.onDidChangeTextEditorSelection((event) => {
-            this.whiteViz.updateEditor(event.textEditor);
+        const subscriptions: vscode.Disposable[] = [];
+
+        vscode.workspace.onDidChangeConfiguration(this.whiteSpace.updateConfigurations, this, subscriptions);
+
+        vscode.window.onDidChangeTextEditorSelection(event => {
+            this.whiteSpace.updateEditor(event.textEditor);
         });
 
         this.disposable = vscode.Disposable.from(...subscriptions);
@@ -31,12 +31,22 @@ class WhiteVizController {
     }
 }
 
-class WhiteViz {
-    private whitespaceDecoration?: vscode.TextEditorDecorationType;
+class WhiteSpace {
+    private editorTabSize = -1; // tbd
+
+    private spaceDecoration?: vscode.TextEditorDecorationType;
+    private spacePattern = /[ ]|\u00A0|\u2000|\u2001|\u2002|\u2003|\u2004|\u2005|\u2006|\u2007|\u2008|\u2009|\u200A|\u202F|\u205F|\u3000|\u200B|\u200C|\u200D|\u2060/;
+    private spaceIndicator = "·";
+    private spaceMargin = "0 -1ch 0 0";
+    private spaceWidth = "1ch"
+
     private tabDecoration?: vscode.TextEditorDecorationType;
-    private spacePattern = " ";
-    private tabPattern = "\t";
-    private visualizeOnlyIndentation = false;
+    private tabPattern = /\t/;
+    private tabIndicator = ""; // tbd later based on tabSize
+    private tabMargin = ""; // tbd later based on tabSize
+
+    private tabWidth = ""
+
     private overrideDefault = false;
     private disableExtension = false;
 
@@ -45,101 +55,57 @@ class WhiteViz {
     }
 
     dispose(){
-        if (this.whitespaceDecoration) {
-            this.whitespaceDecoration.dispose();
+        if (this.spaceDecoration) {
+            this.spaceDecoration.dispose();
         }
         if (this.tabDecoration) {
             this.tabDecoration.dispose();
         }
     }
 
-    updateConfigurations(){
+    updateConfigurations() {
         this.clearDecorations();
-
         let configurations = vscode.workspace.getConfiguration("whiteviz");
-        this.overrideDefault = configurations.get<boolean>("overrideDefault");
 
-        let editorConfigurations = vscode.workspace.getConfiguration("editor");
-        let renderWhitespace = editorConfigurations.get<string>(
-            "renderWhitespace"
-        );
-
-        this.disableExtension = (
-            !this.overrideDefault && renderWhitespace !== "none"
-        );
-
+        let editorConfig = vscode.workspace.getConfiguration("editor");
+        let renderWhitespace = editorConfig.get("renderWhitespace");
+        this.disableExtension = !this.overrideDefault && renderWhitespace !== "none";
         if (this.disableExtension) {
-            vscode.window.showInformationMessage(
-                `WhiteViz detected that you set "editor.renderWhitespace" to "${
-                    renderWhitespace
-                }". The extension will now disabled.`
-            );
+            vscode.window.showInformationMessage(`WhiteSpace detected that you set "editor.renderWhitespace" to "${renderWhitespace}". The extension will now disabled.`);
         }
+        this.editorTabSize = parseInt(editorConfig.get<string>("tabSize"));
+        this.tabMargin = `0 -${this.editorTabSize}ch 0 0`;
+        this.tabWidth = `${this.editorTabSize}ch`;
+        this.tabIndicator = this.editorTabSize % 4 === 0
+            ? "⸻".repeat(this.editorTabSize / 4)
+            : this.editorTabSize % 2 === 0
+                ? "⸺"
+                : "—";
 
-        this.visualizeOnlyIndentation = configurations.get<boolean>(
-            "visualizeOnlyIndentation"
-        );
-        let spaceIndicator = configurations.get<string>("spaceIndicator");
-        let tabIndicator = configurations.get<string>("tabIndicator");
+        const darkColor = configurations.get("color.dark", configurations.get("color"));
+        const lightColor = configurations.get("color.light", configurations.get("color"));
+        const emDashFont = "'Source Sans Pro'";
 
-        let darkColor = configurations.get<string>(
-            "color.dark", configurations.get<string>("color")
-        );
-        let lightColor = configurations.get<string>(
-            "color.light", configurations.get<string>("color")
-        );
+        const config = color => type => ({
+            before: {
+                contentText: this[`${type}Indicator`],
+                margin: this[`${type}Margin`],
+                width: this[`${type}Width`],
+                color: color,
+                textDecoration: `none; font-family: ${emDashFont}; text-align: center`
+            }
+        })
 
-        this.spacePattern = configurations.get<string>(
-            "spacePattern"
-        );
-        this.tabPattern = configurations.get<string>("tabPattern");
+        const [lightConfig, darkConfig] = [config(lightColor), config(darkColor)];
 
-        let margin = "0ch -1ch 0ch 0ch";
-
-        this.whitespaceDecoration = (
-            vscode.window.createTextEditorDecorationType(
-                {
-                    light: {
-                        before: {
-                            contentText: spaceIndicator,
-                            margin: margin,
-                            color: lightColor
-                        }
-                    },
-                    dark: {
-                        before: {
-                            contentText: spaceIndicator,
-                            margin: margin,
-                            color: darkColor
-                        }
-                    }
-                }
-             )
-        );
-        this.tabDecoration = (
-            vscode.window.createTextEditorDecorationType(
-                {
-                    light: {
-                        before: {
-                            contentText: tabIndicator,
-                            margin: margin,
-                            color: lightColor
-                        }
-                    },
-                    dark: {
-                        before: {
-                            contentText: tabIndicator,
-                            margin: margin,
-                            color: darkColor
-                        }
-                    }
-                }
-             )
-        );
-
-        if (!this.disableExtension) {
+        ["space", "tab"].forEach(t => {
+            this[`${t}Decoration`] = vscode.window.createTextEditorDecorationType({
+                light: lightConfig(t),
+                dark: darkConfig(t)
+            });
+        });
+        if (!this.disableExtension)
             this.updateDecorations();
-        }
     }
 
     clearDecorations(){
@@ -147,8 +113,8 @@ class WhiteViz {
     }
 
     clearEditor(editor: vscode.TextEditor){
-        if (this.whitespaceDecoration) {
-            editor.setDecorations(this.whitespaceDecoration, []);
+        if (this.spaceDecoration) {
+            editor.setDecorations(this.spaceDecoration, []);
         }
         if (this.tabDecoration) {
             editor.setDecorations(this.tabDecoration, []);
@@ -156,7 +122,7 @@ class WhiteViz {
     }
 
     updateDecorations(){
-        if (!this.whitespaceDecoration || this.disableExtension) {
+        if (!this.spaceDecoration || this.disableExtension) {
             this.clearDecorations();
             return;
         }
@@ -164,62 +130,52 @@ class WhiteViz {
     }
 
     updateEditor(editor: vscode.TextEditor){
-        if (!this.whitespaceDecoration || this.disableExtension) {
+        if (!this.spaceDecoration || this.disableExtension) {
             this.clearEditor(editor);
             return;
         }
+
         let whitespaceRanges: vscode.Range[] = [];
         let tabRanges: vscode.Range[] = [];
-        editor.selections.forEach((selection) => {
-            if (selection.isEmpty) {
+
+        editor.selections.forEach(selection => {
+            if (selection.isEmpty)
                 return;
-            }
 
-            let firstLine = selection.start.line;
-            let firstCharacter = selection.start.character;
-            let lastLine = selection.end.line;
-            let lastCharacter = selection.end.character;
-            let currentLine = firstLine;
-            while (currentLine <= lastLine) {
-                let line = editor.document.lineAt(currentLine);
+            const selectionFirstLine = selection.start.line;
+            const selectionLastLine = selection.end.line;
 
-                let character = (
-                    currentLine === firstLine ? firstCharacter : 0
-                );
-                let lineText = line.text;
-                let lineLength = (
-                    currentLine === lastLine ? lastCharacter : lineText.length
-                );
-                while (character < lineLength) {
-                    if (
-                        this.visualizeOnlyIndentation &&
-                        character >= line.firstNonWhitespaceCharacterIndex
-                    ) {
-                        break;
-                    }
+            const selectionFirstChar = selection.start.character;
+            const selectionLastChar = selection.end.character;
 
-                    if (
-                        this.tabPattern.indexOf(lineText[character]) >= 0
-                    ) {
-                        tabRanges.push(new vscode.Range(
-                            currentLine, character, currentLine, character
-                        ));
-                    } else if (
-                        this.spacePattern.indexOf(lineText[character]) >= 0
-                    ) {
-                        whitespaceRanges.push(new vscode.Range(
-                            currentLine, character, currentLine, character
-                        ));
-                    }
+            let currentLineNum = selectionFirstLine;
 
-                    character += 1;
+            for (; currentLineNum <= selectionLastLine; currentLineNum++) {
+                const line = editor.document.lineAt(currentLineNum);
+
+                let charNum = currentLineNum === selectionFirstLine
+                    ? selectionFirstChar
+                    : 0;
+
+                let lineLength = currentLineNum === selectionLastLine
+                    ? selectionLastChar
+                    : line.text.length;
+
+                for (; charNum < lineLength; charNum++) {
+                    if (this.tabPattern.test(line.text[charNum]))
+                        tabRanges.push(
+                            new vscode.Range(currentLineNum, charNum, currentLineNum, charNum)
+                        );
+
+                    else if (this.spacePattern.test(line.text[charNum]))
+                        whitespaceRanges.push(
+                            new vscode.Range(currentLineNum, charNum, currentLineNum, charNum)
+                        );
                 }
-
-                currentLine += 1;
             }
         });
 
-        editor.setDecorations(this.whitespaceDecoration, whitespaceRanges);
+        editor.setDecorations(this.spaceDecoration, whitespaceRanges);
         editor.setDecorations(this.tabDecoration, tabRanges);
     }
 }
