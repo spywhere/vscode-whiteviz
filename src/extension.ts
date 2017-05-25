@@ -2,25 +2,27 @@
 import * as vscode from "vscode";
 
 export function activate(context: vscode.ExtensionContext) {
-    const whiteSpace = new WhiteSpace();
-    context.subscriptions.push(whiteSpace);
-    context.subscriptions.push(new WhiteSpaceController(whiteSpace));
+    const whiteViz = new WhiteViz();
+    context.subscriptions.push(whiteViz);
+    context.subscriptions.push(new WhiteVizController(whiteViz));
 }
 
-class WhiteSpaceController {
-    private whiteSpace: WhiteSpace;
+class WhiteVizController {
+    private whiteViz: WhiteViz;
     private disposable: vscode.Disposable;
     private lastLine: number = undefined;
 
-    constructor(whiteSpace: WhiteSpace){
-        this.whiteSpace = whiteSpace;
+    constructor(whiteViz: WhiteViz){
+        this.whiteViz = whiteViz;
 
         const subscriptions: vscode.Disposable[] = [];
 
-        vscode.workspace.onDidChangeConfiguration(this.whiteSpace.updateConfigurations, this, subscriptions);
+        vscode.workspace.onDidChangeConfiguration(() => {
+            this.whiteViz.updateConfigurations();
+        }, this, subscriptions);
 
-        vscode.window.onDidChangeTextEditorSelection(event => {
-            this.whiteSpace.updateEditor(event.textEditor);
+        vscode.window.onDidChangeTextEditorSelection((event) => {
+            this.whiteViz.updateEditor(event.textEditor);
         });
 
         this.disposable = vscode.Disposable.from(...subscriptions);
@@ -31,22 +33,20 @@ class WhiteSpaceController {
     }
 }
 
-class WhiteSpace {
-    private editorTabSize = -1; // tbd
-
+class WhiteViz {
     private spaceDecoration?: vscode.TextEditorDecorationType;
-    private spacePattern = /[ ]|\u00A0|\u2000|\u2001|\u2002|\u2003|\u2004|\u2005|\u2006|\u2007|\u2008|\u2009|\u200A|\u202F|\u205F|\u3000|\u200B|\u200C|\u200D|\u2060/;
+    private spacePattern = " ";
     private spaceIndicator = "·";
     private spaceMargin = "0 -1ch 0 0";
     private spaceWidth = "1ch"
 
     private tabDecoration?: vscode.TextEditorDecorationType;
-    private tabPattern = /\t/;
-    private tabIndicator = ""; // tbd later based on tabSize
-    private tabMargin = ""; // tbd later based on tabSize
+    private tabPattern = "\t";
+    private tabIndicator = "→";
+    private tabMargin = "";
+    private tabWidth = "";
 
-    private tabWidth = ""
-
+    private visualizeOnlyIndentation = false;
     private overrideDefault = false;
     private disableExtension = false;
 
@@ -63,36 +63,70 @@ class WhiteSpace {
         }
     }
 
-    updateConfigurations() {
+    updateConfigurations(){
         this.clearDecorations();
+
         let configurations = vscode.workspace.getConfiguration("whiteviz");
+        this.overrideDefault = configurations.get<boolean>("overrideDefault");
 
-        let editorConfig = vscode.workspace.getConfiguration("editor");
-        let renderWhitespace = editorConfig.get("renderWhitespace");
-        this.disableExtension = !this.overrideDefault && renderWhitespace !== "none";
+        let editorConfigurations = vscode.workspace.getConfiguration("editor");
+        let renderWhitespace = editorConfigurations.get<string>(
+            "renderWhitespace"
+        );
+
+        this.disableExtension = (
+            !this.overrideDefault && renderWhitespace !== "none"
+        );
+
         if (this.disableExtension) {
-            vscode.window.showInformationMessage(`WhiteSpace detected that you set "editor.renderWhitespace" to "${renderWhitespace}". The extension will now disabled.`);
+            vscode.window.showInformationMessage(
+                `WhiteViz detected that you set "editor.renderWhitespace" to "${
+                    renderWhitespace
+                }". The extension will now disabled.`
+            );
         }
-        this.editorTabSize = parseInt(editorConfig.get<string>("tabSize"));
-        this.tabMargin = `0 -${this.editorTabSize}ch 0 0`;
-        this.tabWidth = `${this.editorTabSize}ch`;
-        this.tabIndicator = this.editorTabSize % 4 === 0
-            ? "⸻".repeat(this.editorTabSize / 4)
-            : this.editorTabSize % 2 === 0
-                ? "⸺"
-                : "—";
 
-        const darkColor = configurations.get("color.dark", configurations.get("color"));
-        const lightColor = configurations.get("color.light", configurations.get("color"));
-        const emDashFont = "'Source Sans Pro'";
+        let expandedTabIndicator = configurations.get<boolean>(
+            "expandedTabIndicator"
+        );
+        this.visualizeOnlyIndentation = configurations.get<boolean>(
+            "visualizeOnlyIndentation"
+        );
+        this.spaceIndicator = configurations.get<string>("spaceIndicator");
+        this.tabIndicator = configurations.get<string>("tabIndicator");
 
-        const config = color => type => ({
+        if (expandedTabIndicator) {
+            let tabSize = parseInt(
+                editorConfigurations.get<string>("tabSize")
+            );
+            this.tabMargin = `0 -${ tabSize }ch 0 0`;
+            this.tabWidth = `${ tabSize }ch`;
+            this.tabIndicator = "—".repeat(tabSize);
+        }
+
+        const darkColor = configurations.get<string>(
+            "color.dark", configurations.get<string>("color")
+        );
+        const lightColor = configurations.get<string>(
+            "color.light", configurations.get<string>("color")
+        );
+
+        this.spacePattern = configurations.get<string>("spacePattern");
+        this.tabPattern = configurations.get<string>("tabPattern");
+
+        const config = (color) => (type) => ({
             before: {
                 contentText: this[`${type}Indicator`],
-                margin: this[`${type}Margin`],
-                width: this[`${type}Width`],
-                color: color,
-                textDecoration: `none; font-family: ${emDashFont}; text-align: center`
+                margin: (
+                    expandedTabIndicator ?
+                    this[`${type}Margin`] : this.spaceMargin
+                ),
+                width: (
+                    expandedTabIndicator ?
+                    this[`${type}Width`] :
+                    this.spaceWidth
+                ),
+                color: color
             }
         })
 
@@ -104,8 +138,9 @@ class WhiteSpace {
                 dark: darkConfig(t)
             });
         });
-        if (!this.disableExtension)
+        if (!this.disableExtension) {
             this.updateDecorations();
+        }
     }
 
     clearDecorations(){
@@ -138,39 +173,60 @@ class WhiteSpace {
         let whitespaceRanges: vscode.Range[] = [];
         let tabRanges: vscode.Range[] = [];
 
-        editor.selections.forEach(selection => {
-            if (selection.isEmpty)
+        editor.selections.forEach((selection) => {
+            if (selection.isEmpty) {
                 return;
+            }
 
-            const selectionFirstLine = selection.start.line;
-            const selectionLastLine = selection.end.line;
+            const firstLine = selection.start.line;
+            const firstCharacter = selection.start.character;
 
-            const selectionFirstChar = selection.start.character;
-            const selectionLastChar = selection.end.character;
+            const lastLine = selection.end.line;
+            const lastCharacter = selection.end.character;
 
-            let currentLineNum = selectionFirstLine;
+            for (
+                let currentLine = firstLine;
+                currentLine <= lastLine;
+                currentLine++
+            ) {
+                const line = editor.document.lineAt(currentLine);
+                const lineText = line.text;
 
-            for (; currentLineNum <= selectionLastLine; currentLineNum++) {
-                const line = editor.document.lineAt(currentLineNum);
+                let position = (
+                    currentLine === firstLine ? firstCharacter : 0
+                );
 
-                let charNum = currentLineNum === selectionFirstLine
-                    ? selectionFirstChar
-                    : 0;
+                let lineLength = (
+                    currentLine === lastLine ? lastCharacter : lineText.length
+                );
 
-                let lineLength = currentLineNum === selectionLastLine
-                    ? selectionLastChar
-                    : line.text.length;
+                for (; position < lineLength; position++) {
+                    if (
+                        this.visualizeOnlyIndentation &&
+                        position >= line.firstNonWhitespaceCharacterIndex
+                    ) {
+                        break;
+                    }
 
-                for (; charNum < lineLength; charNum++) {
-                    if (this.tabPattern.test(line.text[charNum]))
+                    if (
+                        this.tabPattern.indexOf(lineText[position]) >= 0
+                    ) {
                         tabRanges.push(
-                            new vscode.Range(currentLineNum, charNum, currentLineNum, charNum)
+                            new vscode.Range(
+                                currentLine, position,
+                                currentLine, position
+                            )
                         );
-
-                    else if (this.spacePattern.test(line.text[charNum]))
+                    } else if (
+                        this.spacePattern.indexOf(lineText[position]) >= 0
+                    ) {
                         whitespaceRanges.push(
-                            new vscode.Range(currentLineNum, charNum, currentLineNum, charNum)
+                            new vscode.Range(
+                                currentLine, position,
+                                currentLine, position
+                            )
                         );
+                    }
                 }
             }
         });

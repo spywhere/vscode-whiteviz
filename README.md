@@ -13,3 +13,7 @@ Most whitespace characters (including full-width characters) are already support
 
 ### How to use it?
 Simply install the extension, and you can use it right away (after restart)!
+
+### Contributors
+
+@chmln : For the expanded tab indicator from BetterWhiteSpace
