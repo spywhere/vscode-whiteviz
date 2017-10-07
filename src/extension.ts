@@ -25,6 +25,11 @@ class WhiteVizController {
             this.whiteViz.updateEditor(event.textEditor);
         });
 
+        vscode.window.onDidChangeTextEditorOptions((event) => {
+            this.whiteViz.removeTabIndicator(event.textEditor);
+            this.whiteViz.updateEditor(event.textEditor);
+        });
+
         this.disposable = vscode.Disposable.from(...subscriptions);
     }
 
@@ -34,18 +39,24 @@ class WhiteVizController {
 }
 
 class WhiteViz {
+    private darkColor = "rgba(180, 180, 180, 0.75)";
+    private lightColor = "rgba(0, 0, 0, 0.75)";
+
     private spaceDecoration?: vscode.TextEditorDecorationType;
     private spacePattern = " ";
     private spaceIndicator = "·";
     private spaceMargin = "0 -1ch 0 0";
     private spaceWidth = "1ch"
 
-    private tabDecoration?: vscode.TextEditorDecorationType;
+    // private tabDecoration?: vscode.TextEditorDecorationType;
+    private tabDecoration: {
+        [filename: string]: vscode.TextEditorDecorationType;
+    } = {};
+
     private tabPattern = "\t";
     private tabIndicator = "→";
-    private tabMargin = "";
-    private tabWidth = "";
 
+    private expandMode = false;
     private visualizeOnlyIndentation = false;
     private overrideDefault = false;
     private disableExtension = false;
@@ -56,16 +67,92 @@ class WhiteViz {
     }
 
     dispose(){
+        this.reset();
+    }
+
+    reset(){
         if (this.spaceDecoration) {
             this.spaceDecoration.dispose();
         }
-        if (this.tabDecoration) {
-            this.tabDecoration.dispose();
+        for (let key of Object.keys(this.tabDecoration)) {
+            this.tabDecoration[key].dispose();
+            delete this.tabDecoration[key];
         }
+    }
+
+    removeTabIndicator(editor: vscode.TextEditor){
+        let key = editor.document.fileName;
+        if (this.tabDecoration.hasOwnProperty(key)) {
+            editor.setDecorations(this.tabDecoration[key], []);
+            this.tabDecoration[key].dispose();
+
+            delete this.tabDecoration[key];
+        }
+    }
+
+    getTabIndicator(editor: vscode.TextEditor){
+        let key = editor.document.fileName;
+        if (this.tabDecoration.hasOwnProperty(key)) {
+            return this.tabDecoration[key];
+        }
+
+        let configurations = vscode.workspace.getConfiguration("whiteviz");
+        let decorator: vscode.TextEditorDecorationType;
+
+        if (this.expandMode) {
+            let editorConfigurations = vscode.workspace.getConfiguration("editor");
+
+            let tabSize = (
+                vscode.window.activeTextEditor &&
+                typeof(
+                    vscode.window.activeTextEditor.options.tabSize
+                ) === "number"
+            ) ? vscode.window.activeTextEditor.options.tabSize : parseInt(
+                editorConfigurations.get<string>("tabSize")
+            );
+
+            let margin = configurations.get<number>("expandedTabMargin");
+
+            decorator = this.createDecoration(
+                "—".repeat(tabSize - margin),
+                `0 -${ tabSize - (margin / 2) }ch 0 ${ margin / 2 }ch`,
+                `${ tabSize - margin }ch`
+            );
+        } else {
+            decorator = this.createDecoration(
+                this.tabIndicator,
+                "0 0 0 0",
+                "0ch"
+            );
+        }
+
+        this.tabDecoration[key] = decorator;
+        return this.tabDecoration[key];
+    }
+
+    createDecoration(
+        indicator: string,
+        margin: string,
+        width: string
+    ){
+        const config = (color: string) => ({
+            before: {
+                contentText: indicator,
+                margin: margin,
+                width: width,
+                color: color
+            }
+        });
+
+        return vscode.window.createTextEditorDecorationType({
+            light: config(this.lightColor),
+            dark: config(this.darkColor)
+        });
     }
 
     updateConfigurations(){
         this.clearDecorations();
+        this.reset();
 
         let configurations = vscode.workspace.getConfiguration("whiteviz");
         this.overrideDefault = configurations.get<boolean>("overrideDefault");
@@ -88,58 +175,30 @@ class WhiteViz {
             );
         }
 
-        let expandedTabIndicator = configurations.get<boolean>(
+        this.expandMode = configurations.get<boolean>(
             "expandedTabIndicator"
         );
         this.visualizeOnlyIndentation = configurations.get<boolean>(
             "visualizeOnlyIndentation"
         );
-        this.spaceIndicator = configurations.get<string>("spaceIndicator");
-        this.tabIndicator = configurations.get<string>("tabIndicator");
 
-        if (expandedTabIndicator) {
-            let tabSize = parseInt(
-                editorConfigurations.get<string>("tabSize")
-            );
-            this.tabMargin = `0 -${ tabSize }ch 0 0`;
-            this.tabWidth = `${ tabSize }ch`;
-            this.tabIndicator = "—".repeat(tabSize);
-        }
-
-        const darkColor = configurations.get<string>(
+        this.darkColor = configurations.get<string>(
             "color.dark", configurations.get<string>("color")
         );
-        const lightColor = configurations.get<string>(
+        this.lightColor = configurations.get<string>(
             "color.light", configurations.get<string>("color")
         );
+
+        this.spaceIndicator = configurations.get<string>("spaceIndicator");
+        this.tabIndicator = configurations.get<string>("tabIndicator");
 
         this.spacePattern = configurations.get<string>("spacePattern");
         this.tabPattern = configurations.get<string>("tabPattern");
 
-        const config = (color) => (type) => ({
-            before: {
-                contentText: this[`${type}Indicator`],
-                margin: (
-                    expandedTabIndicator ?
-                    this[`${type}Margin`] : this.spaceMargin
-                ),
-                width: (
-                    expandedTabIndicator ?
-                    this[`${type}Width`] :
-                    this.spaceWidth
-                ),
-                color: color
-            }
-        })
+        this.spaceDecoration = this.createDecoration(
+            this.spaceIndicator, this.spaceMargin, this.spaceWidth
+        );
 
-        const [lightConfig, darkConfig] = [config(lightColor), config(darkColor)];
-
-        ["space", "tab"].forEach(t => {
-            this[`${t}Decoration`] = vscode.window.createTextEditorDecorationType({
-                light: lightConfig(t),
-                dark: darkConfig(t)
-            });
-        });
         if (!this.disableExtension) {
             this.updateDecorations();
         }
@@ -153,9 +212,7 @@ class WhiteViz {
         if (this.spaceDecoration) {
             editor.setDecorations(this.spaceDecoration, []);
         }
-        if (this.tabDecoration) {
-            editor.setDecorations(this.tabDecoration, []);
-        }
+        this.removeTabIndicator(editor);
     }
 
     updateDecorations(){
@@ -244,6 +301,6 @@ class WhiteViz {
         });
 
         editor.setDecorations(this.spaceDecoration, whitespaceRanges);
-        editor.setDecorations(this.tabDecoration, tabRanges);
+        editor.setDecorations(this.getTabIndicator(editor), tabRanges);
     }
 }

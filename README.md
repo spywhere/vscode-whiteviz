@@ -1,6 +1,6 @@
 ## WhiteViz
-[![Version](http://vsmarketplacebadge.apphb.com/version/spywhere.whiteviz.svg)](https://marketplace.visualstudio.com/items?itemName=spywhere.whiteviz)
-[![Installs](http://vsmarketplacebadge.apphb.com/installs/spywhere.whiteviz.svg)](https://marketplace.visualstudio.com/items?itemName=spywhere.whiteviz)
+[![Version](https://vsmarketplacebadge.apphb.com/version/spywhere.whiteviz.svg)](https://marketplace.visualstudio.com/items?itemName=spywhere.whiteviz)
+[![Installs](https://vsmarketplacebadge.apphb.com/installs/spywhere.whiteviz.svg)](https://marketplace.visualstudio.com/items?itemName=spywhere.whiteviz)
 
 An extension for whitespace visualization
 

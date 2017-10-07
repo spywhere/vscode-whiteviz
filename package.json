@@ -2,7 +2,7 @@
     "name": "whiteviz",
     "displayName": "WhiteViz",
     "description": "An extension for whitespace visualization",
-    "version": "0.4.0",
+    "version": "0.4.1",
     "publisher": "spywhere",
     "icon": "images/icon.png",
     "bugs": {
@@ -45,6 +45,11 @@
                     "type": "boolean",
                     "default": false,
                     "description": "Visualize full tab size instead of using tab indicator."
+                },
+                "whiteviz.expandedTabMargin": {
+                    "type": "number",
+                    "default": 0,
+                    "description": "Add left and right margin to tab indicator."
                 },
                 "whiteviz.color.dark": {
                     "type": "string",
