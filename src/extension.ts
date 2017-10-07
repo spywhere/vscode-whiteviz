@@ -49,6 +49,7 @@ class WhiteViz {
     private visualizeOnlyIndentation = false;
     private overrideDefault = false;
     private disableExtension = false;
+    private maximumLimit = 500;
 
     constructor(){
         this.updateConfigurations();
@@ -68,6 +69,7 @@ class WhiteViz {
 
         let configurations = vscode.workspace.getConfiguration("whiteviz");
         this.overrideDefault = configurations.get<boolean>("overrideDefault");
+        this.maximumLimit = configurations.get<number>("maximumLimit");
 
         let editorConfigurations = vscode.workspace.getConfiguration("editor");
         let renderWhitespace = editorConfigurations.get<string>(
@@ -174,15 +176,25 @@ class WhiteViz {
         let tabRanges: vscode.Range[] = [];
 
         editor.selections.forEach((selection) => {
-            if (selection.isEmpty) {
+            let firstLine = selection.start.line;
+            let firstCharacter = selection.start.character;
+
+            let lastLine = selection.end.line;
+            let lastCharacter = selection.end.character;
+
+            if (
+                this.maximumLimit > 0 &&
+                lastLine - firstLine > this.maximumLimit
+            ) {
+                return;
+            } else if (this.maximumLimit === 0) {
+                firstLine = selection.active.line;
+                firstCharacter = 0;
+                lastLine = selection.active.line;
+                lastCharacter = selection.active.character;
+            } else if (selection.isEmpty) {
                 return;
             }
-
-            const firstLine = selection.start.line;
-            const firstCharacter = selection.start.character;
-
-            const lastLine = selection.end.line;
-            const lastCharacter = selection.end.character;
 
             for (
                 let currentLine = firstLine;

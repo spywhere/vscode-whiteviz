@@ -2,7 +2,7 @@
     "name": "whiteviz",
     "displayName": "WhiteViz",
     "description": "An extension for whitespace visualization",
-    "version": "0.3.0",
+    "version": "0.4.0",
     "publisher": "spywhere",
     "icon": "images/icon.png",
     "bugs": {
@@ -55,6 +55,11 @@
                     "type": "string",
                     "default": "rgba(0, 0, 0, 0.75)",
                     "description": "Indicator color for light themes."
+                },
+                "whiteviz.maximumLimit": {
+                    "type": "number",
+                    "default": 500,
+                    "description": "A maximum number of lines to visualize whitespaces. Set to -1 for unlimited. Set to 0 to always show at current line."
                 },
                 "whiteviz.spacePattern": {
                     "type": "string",
