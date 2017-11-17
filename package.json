@@ -2,7 +2,7 @@
     "name": "whiteviz",
     "displayName": "WhiteViz",
     "description": "An extension for whitespace visualization",
-    "version": "0.4.1",
+    "version": "0.4.2",
     "publisher": "spywhere",
     "icon": "images/icon.png",
     "bugs": {
@@ -14,7 +14,8 @@
         "whitespace",
         "visualize",
         "render",
-        "renderwhitespace"
+        "renderwhitespace",
+        "multi-root ready"
     ],
     "license": "MIT",
     "repository": {
@@ -22,7 +23,7 @@
         "url": "https://github.com/spywhere/vscode-whiteviz.git"
     },
     "engines": {
-        "vscode": "^1.11.0"
+        "vscode": "^1.17.0"
     },
     "categories": [
         "Other"
@@ -39,61 +40,72 @@
                 "whiteviz.visualizeOnlyIndentation": {
                     "type": "boolean",
                     "default": false,
-                    "description": "Visualize whitespaces only at the beginning of the line."
+                    "description": "Visualize whitespaces only at the beginning of the line.",
+                    "scope": "window"
                 },
                 "whiteviz.expandedTabIndicator": {
                     "type": "boolean",
                     "default": false,
-                    "description": "Visualize full tab size instead of using tab indicator."
+                    "description": "Visualize full tab size instead of using tab indicator.",
+                    "scope": "window"
                 },
                 "whiteviz.expandedTabMargin": {
                     "type": "number",
                     "default": 0,
-                    "description": "Add left and right margin to tab indicator."
+                    "description": "Add left and right margin to tab indicator.",
+                    "scope": "window"
                 },
                 "whiteviz.color.dark": {
                     "type": "string",
                     "default": "rgba(180, 180, 180, 0.75)",
-                    "description": "Indicator color for dark themes."
+                    "description": "Indicator color for dark themes.",
+                    "scope": "window"
                 },
                 "whiteviz.color.light": {
                     "type": "string",
                     "default": "rgba(0, 0, 0, 0.75)",
-                    "description": "Indicator color for light themes."
+                    "description": "Indicator color for light themes.",
+                    "scope": "window"
                 },
                 "whiteviz.maximumLimit": {
                     "type": "number",
                     "default": 500,
-                    "description": "A maximum number of lines to visualize whitespaces. Set to -1 for unlimited. Set to 0 to always show at current line."
+                    "description": "A maximum number of lines to visualize whitespaces. Set to -1 for unlimited. Set to 0 to always show at current line.",
+                    "scope": "window"
                 },
                 "whiteviz.spacePattern": {
                     "type": "string",
                     "pattern": "^.+$",
-                    "default": " \u00A0\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A\u202F\u205F\u3000\u200B\u200C\u200D\u2060",
-                    "description": "A set of characters to match whitespace characters."
+                    "default": "               　​‌‍⁠",
+                    "description": "A set of characters to match whitespace characters.",
+                    "scope": "window"
                 },
                 "whiteviz.tabPattern": {
                     "type": "string",
                     "pattern": "^.+$",
                     "default": "\t",
-                    "description": "A set of characters to match tab characters."
+                    "description": "A set of characters to match tab characters.",
+                    "scope": "window"
                 },
                 "whiteviz.spaceIndicator": {
                     "type": "string",
                     "pattern": "^.$",
                     "default": "·",
-                    "description": "Space indicator symbol."
+                    "description": "Space indicator symbol.",
+                    "scope": "window"
                 },
                 "whiteviz.tabIndicator": {
                     "type": "string",
                     "pattern": "^.$",
                     "default": "→",
-                    "description": "Tab indicator symbol."
+                    "description": "Tab indicator symbol.",
+                    "scope": "window"
                 },
                 "whiteviz.overrideDefault": {
                     "type": "boolean",
                     "default": false,
-                    "description": "Suppress suggestions / detections toward default Visual Studio Code settings."
+                    "description": "Suppress suggestions / detections toward default Visual Studio Code settings.",
+                    "scope": "window"
                 }
             }
         }
@@ -104,7 +116,7 @@
         "postinstall": "node ./node_modules/vscode/bin/install"
     },
     "devDependencies": {
-        "typescript": "^2.0.3",
+        "typescript": "^2.1.4",
         "vscode": "^1.0.0",
         "@types/node": "^6.0.40"
     }

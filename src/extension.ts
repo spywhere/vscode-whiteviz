@@ -158,7 +158,11 @@ class WhiteViz {
         this.overrideDefault = configurations.get<boolean>("overrideDefault");
         this.maximumLimit = configurations.get<number>("maximumLimit");
 
-        let editorConfigurations = vscode.workspace.getConfiguration("editor");
+        let editorConfigurations = vscode.workspace.getConfiguration(
+            "editor",
+            vscode.window.activeTextEditor ?
+            vscode.window.activeTextEditor.document.uri : undefined
+        );
         let renderWhitespace = editorConfigurations.get<string>(
             "renderWhitespace"
         );
@@ -241,7 +245,7 @@ class WhiteViz {
 
             if (
                 this.maximumLimit > 0 &&
-                lastLine - firstLine > this.maximumLimit
+                lastLine - firstLine >= this.maximumLimit
             ) {
                 return;
             } else if (this.maximumLimit === 0) {
