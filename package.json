@@ -2,7 +2,7 @@
     "name": "whiteviz",
     "displayName": "WhiteViz",
     "description": "An extension for whitespace visualization",
-    "version": "0.4.2",
+    "version": "0.4.3",
     "publisher": "spywhere",
     "icon": "images/icon.png",
     "bugs": {
@@ -41,6 +41,12 @@
                     "type": "boolean",
                     "default": false,
                     "description": "Visualize whitespaces only at the beginning of the line.",
+                    "scope": "window"
+                },
+                "whiteviz.skipWordWhitespace": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Visualize whitespaces only at the beginning or ending of the line.",
                     "scope": "window"
                 },
                 "whiteviz.expandedTabIndicator": {

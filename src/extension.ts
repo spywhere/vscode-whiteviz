@@ -58,6 +58,7 @@ class WhiteViz {
 
     private expandMode = false;
     private visualizeOnlyIndentation = false;
+    private skipWordWhitespace = true;
     private overrideDefault = false;
     private disableExtension = false;
     private maximumLimit = 500;
@@ -185,6 +186,9 @@ class WhiteViz {
         this.visualizeOnlyIndentation = configurations.get<boolean>(
             "visualizeOnlyIndentation"
         );
+        this.skipWordWhitespace = configurations.get<boolean>(
+            "skipWordWhitespace"
+        );
 
         this.darkColor = configurations.get<string>(
             "color.dark", configurations.get<string>("color")
@@ -265,6 +269,17 @@ class WhiteViz {
                 const line = editor.document.lineAt(currentLine);
                 const lineText = line.text;
 
+                let skipStart: number | undefined;
+                let skipEnd: number | undefined;
+
+                if (!line.isEmptyOrWhitespace && this.skipWordWhitespace) {
+                    let lineEnding = new RegExp("\\s*$", "g").exec(lineText);
+                    if (lineEnding) {
+                        skipStart = line.firstNonWhitespaceCharacterIndex;
+                        skipEnd = lineEnding.index;
+                    }
+                }
+
                 let position = (
                     currentLine === firstLine ? firstCharacter : 0
                 );
@@ -279,6 +294,13 @@ class WhiteViz {
                         position >= line.firstNonWhitespaceCharacterIndex
                     ) {
                         break;
+                    }
+
+                    if (
+                        skipStart !== undefined && skipEnd !== undefined &&
+                        skipStart < position && position < skipEnd
+                    ) {
+                        continue;
                     }
 
                     if (
