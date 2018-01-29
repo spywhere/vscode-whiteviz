@@ -2,7 +2,7 @@
     "name": "whiteviz",
     "displayName": "WhiteViz",
     "description": "An extension for whitespace visualization",
-    "version": "0.4.3",
+    "version": "0.4.4",
     "publisher": "spywhere",
     "icon": "images/icon.png",
     "bugs": {

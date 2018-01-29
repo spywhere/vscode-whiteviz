@@ -10,25 +10,43 @@ export function activate(context: vscode.ExtensionContext) {
 class WhiteVizController {
     private whiteViz: WhiteViz;
     private disposable: vscode.Disposable;
-    private lastLine: number = undefined;
+    private lastSelections: vscode.Selection[] = [];
 
     constructor(whiteViz: WhiteViz){
         this.whiteViz = whiteViz;
-
         const subscriptions: vscode.Disposable[] = [];
 
         vscode.workspace.onDidChangeConfiguration(() => {
             this.whiteViz.updateConfigurations();
         }, this, subscriptions);
 
+        vscode.workspace.onDidChangeTextDocument((event) => {
+            for (let lastSelection of this.lastSelections) {
+                if (
+                    event.contentChanges.some(
+                        (change) => !!change.range.intersection(lastSelection)
+                    ) &&
+                    vscode.window.activeTextEditor &&
+                    (
+                        vscode.window.activeTextEditor.document.uri ===
+                        event.document.uri
+                    )
+                ) {
+                    this.whiteViz.updateEditor(vscode.window.activeTextEditor);
+                    break;
+                }
+            }
+        }, this, subscriptions);
+
         vscode.window.onDidChangeTextEditorSelection((event) => {
+            this.lastSelections = event.textEditor.selections;
             this.whiteViz.updateEditor(event.textEditor);
-        });
+        }, this, subscriptions);
 
         vscode.window.onDidChangeTextEditorOptions((event) => {
             this.whiteViz.removeTabIndicator(event.textEditor);
             this.whiteViz.updateEditor(event.textEditor);
-        });
+        }, this, subscriptions);
 
         this.disposable = vscode.Disposable.from(...subscriptions);
     }
