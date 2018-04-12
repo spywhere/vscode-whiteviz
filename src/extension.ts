@@ -48,7 +48,25 @@ class WhiteVizController {
             this.whiteViz.updateEditor(event.textEditor);
         }, this, subscriptions);
 
+        let visibleRangeHandler = this.createDebounce(
+            (editor: vscode.TextEditor) => {
+                this.whiteViz.updateEditor(editor);
+            }, 25
+        );
+        vscode.window.onDidChangeTextEditorVisibleRanges(
+            (event) => visibleRangeHandler(event.textEditor),
+            this, subscriptions
+        );
+
         this.disposable = vscode.Disposable.from(...subscriptions);
+    }
+
+    createDebounce<T>(callback: (...args: T[]) => void, delay: number) {
+        let timer;
+        return (...args: T[]) => {
+            clearTimeout(timer);
+            timer = setTimeout(() => callback.apply(this, args), delay);
+        };
     }
 
     dispose(){
@@ -66,7 +84,6 @@ class WhiteViz {
     private spaceMargin = "0 -1ch 0 0";
     private spaceWidth = "1ch"
 
-    // private tabDecoration?: vscode.TextEditorDecorationType;
     private tabDecoration: {
         [filename: string]: vscode.TextEditorDecorationType;
     } = {};
@@ -79,6 +96,7 @@ class WhiteViz {
     private skipWordWhitespace = true;
     private overrideDefault = false;
     private disableExtension = false;
+    private limitToVisible = true;
     private maximumLimit = 500;
 
     constructor(){
@@ -176,6 +194,9 @@ class WhiteViz {
         let configurations = vscode.workspace.getConfiguration("whiteviz");
         this.overrideDefault = configurations.get<boolean>("overrideDefault");
         this.maximumLimit = configurations.get<number>("maximumLimit");
+        this.limitToVisible = configurations.get<boolean>(
+            "limitToVisibleRange"
+        );
 
         let editorConfigurations = vscode.workspace.getConfiguration(
             "editor",
@@ -264,6 +285,19 @@ class WhiteViz {
 
             let lastLine = selection.end.line;
             let lastCharacter = selection.end.character;
+
+            if (this.limitToVisible) {
+                let container = editor.visibleRanges.find(
+                    (range) => !!range.intersection(selection)
+                );
+                if (container) {
+                    let intersection = container.intersection(selection);
+                    firstLine = intersection.start.line;
+                    firstCharacter = intersection.start.character;
+                    lastLine = intersection.end.line;
+                    lastCharacter = intersection.end.character;
+                }
+            }
 
             if (
                 this.maximumLimit > 0 &&

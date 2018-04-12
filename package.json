@@ -2,7 +2,7 @@
     "name": "whiteviz",
     "displayName": "WhiteViz",
     "description": "An extension for whitespace visualization",
-    "version": "0.4.4",
+    "version": "0.5.0",
     "publisher": "spywhere",
     "icon": "images/icon.png",
     "bugs": {
@@ -23,7 +23,7 @@
         "url": "https://github.com/spywhere/vscode-whiteviz.git"
     },
     "engines": {
-        "vscode": "^1.17.0"
+        "vscode": "^1.22.0"
     },
     "categories": [
         "Other"
@@ -71,6 +71,12 @@
                     "type": "string",
                     "default": "rgba(0, 0, 0, 0.75)",
                     "description": "Indicator color for light themes.",
+                    "scope": "window"
+                },
+                "whiteviz.limitToVisibleRange": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Limit whitespace rendering to only visible range of the editor. Maximum limit still applied.",
                     "scope": "window"
                 },
                 "whiteviz.maximumLimit": {
@@ -122,8 +128,8 @@
         "postinstall": "node ./node_modules/vscode/bin/install"
     },
     "devDependencies": {
-        "typescript": "^2.1.4",
-        "vscode": "^1.0.0",
-        "@types/node": "^6.0.40"
+        "typescript": "^2.8.1",
+        "vscode": "^1.1.14",
+        "@types/node": "^9.6.4"
     }
 }
