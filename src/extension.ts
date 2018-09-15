@@ -91,8 +91,12 @@ class WhiteViz {
     private tabPattern = "\t";
     private tabIndicator = "→";
 
+    private lineEndingIndicator = "↵";
+    private lineEndingDecoration?: vscode.TextEditorDecorationType;
+
     private expandMode = false;
     private visualizeOnlyIndentation = false;
+    private visualizeEOL = false;
     private skipWordWhitespace = true;
     private overrideDefault = false;
     private disableExtension = false;
@@ -110,6 +114,9 @@ class WhiteViz {
     reset(){
         if (this.spaceDecoration) {
             this.spaceDecoration.dispose();
+        }
+        if (this.lineEndingDecoration) {
+            this.lineEndingDecoration.dispose();
         }
         for (let key of Object.keys(this.tabDecoration)) {
             this.tabDecoration[key].dispose();
@@ -225,6 +232,9 @@ class WhiteViz {
         this.visualizeOnlyIndentation = configurations.get<boolean>(
             "visualizeOnlyIndentation"
         );
+        this.visualizeEOL = configurations.get<boolean>(
+            "visualizeEOL"
+        );
         this.skipWordWhitespace = configurations.get<boolean>(
             "skipWordWhitespace"
         );
@@ -238,6 +248,9 @@ class WhiteViz {
 
         this.spaceIndicator = configurations.get<string>("spaceIndicator");
         this.tabIndicator = configurations.get<string>("tabIndicator");
+        this.lineEndingIndicator = configurations.get<string>(
+            "lineEndingIndicator"
+        );
 
         this.spacePattern = configurations.get<string>("spacePattern");
         this.tabPattern = configurations.get<string>("tabPattern");
@@ -245,6 +258,12 @@ class WhiteViz {
         this.spaceDecoration = this.createDecoration(
             this.spaceIndicator, this.spaceMargin, this.spaceWidth
         );
+
+        if (this.visualizeEOL) {
+            this.lineEndingDecoration = this.createDecoration(
+                this.lineEndingIndicator, this.spaceMargin, this.spaceWidth
+            );
+        }
 
         if (!this.disableExtension) {
             this.updateDecorations();
@@ -258,6 +277,9 @@ class WhiteViz {
     clearEditor(editor: vscode.TextEditor){
         if (this.spaceDecoration) {
             editor.setDecorations(this.spaceDecoration, []);
+        }
+        if (this.lineEndingDecoration) {
+            editor.setDecorations(this.lineEndingDecoration, []);
         }
         this.removeTabIndicator(editor);
     }
@@ -278,6 +300,7 @@ class WhiteViz {
 
         let whitespaceRanges: vscode.Range[] = [];
         let tabRanges: vscode.Range[] = [];
+        let lineEndingRanges: vscode.Range[] = [];
 
         editor.selections.forEach((selection) => {
             let firstLine = selection.start.line;
@@ -340,6 +363,15 @@ class WhiteViz {
                     currentLine === lastLine ? lastCharacter : lineText.length
                 );
 
+                if (currentLine !== lastLine) {
+                    lineEndingRanges.push(
+                        new vscode.Range(
+                            currentLine, lineText.length,
+                            currentLine, lineText.length
+                        )
+                    );
+                }
+
                 for (; position < lineLength; position++) {
                     if (
                         this.visualizeOnlyIndentation &&
@@ -379,6 +411,9 @@ class WhiteViz {
         });
 
         editor.setDecorations(this.spaceDecoration, whitespaceRanges);
+        if (this.lineEndingDecoration) {
+            editor.setDecorations(this.lineEndingDecoration, lineEndingRanges);
+        }
         editor.setDecorations(this.getTabIndicator(editor), tabRanges);
     }
 }
