@@ -11,6 +11,15 @@ WhiteViz is simply an extension that visualize the whitespace upon selection. Ex
 
 Most whitespace characters (including full-width characters) are already support out of the box!
 
+### How WhiteViz different from built-in whitespace rendering?
+- Expanded / Full tab indicator
+- Selection with / without word boundary
+- EOL visualization
+- Custom indicator symbol
+
+If you just want simple whitespace rendering on selection, WhiteViz kindly recommended that you use built-in
+whitespace rendering instead.
+
 ### How to use it?
 Simply install the extension, and you can use it right away (after restart)!
 

@@ -74,6 +74,10 @@ class WhiteVizController {
     }
 }
 
+interface ActionItem extends vscode.MessageItem {
+    action?: () => void;
+}
+
 class WhiteViz {
     private darkColor = "rgba(180, 180, 180, 0.75)";
     private lightColor = "rgba(0, 0, 0, 0.75)";
@@ -83,6 +87,10 @@ class WhiteViz {
     private spaceIndicator = "·";
     private spaceMargin = "0 -1ch 0 0";
     private spaceWidth = "1ch"
+    
+    private hasShowSuggestion = {
+        selection: false
+    };
 
     private tabDecoration: {
         [filename: string]: vscode.TextEditorDecorationType;
@@ -124,9 +132,16 @@ class WhiteViz {
         }
     }
 
-    removeTabIndicator(editor: vscode.TextEditor){
-        let key = editor.document.fileName;
-        if (this.tabDecoration.hasOwnProperty(key)) {
+    removeTabIndicator(editor: vscode.TextEditor, excludeRanges?: number[]){
+        let filename = `${ editor.document.fileName }:`;
+
+        for (let key of Object.keys(this.tabDecoration)) {
+            if (
+                !key.startsWith(filename) ||
+                excludeRanges.some((range) => key === `${ filename }${ range }`)
+            ) {
+                continue;
+            }
             editor.setDecorations(this.tabDecoration[key], []);
             this.tabDecoration[key].dispose();
 
@@ -134,8 +149,24 @@ class WhiteViz {
         }
     }
 
-    getTabIndicator(editor: vscode.TextEditor){
-        let key = editor.document.fileName;
+    getTabSize(){
+        let editorConfigurations = vscode.workspace.getConfiguration("editor");
+        let tabSize = (
+            vscode.window.activeTextEditor &&
+            typeof(
+                vscode.window.activeTextEditor.options.tabSize
+            ) === "number"
+        ) ? vscode.window.activeTextEditor.options.tabSize : parseInt(
+            editorConfigurations.get<string>("tabSize")
+        );
+
+        return tabSize;
+    }
+
+    getTabIndicator(editor: vscode.TextEditor, tabSize: number){
+        let key = `${
+            editor.document.fileName
+        }:${ tabSize }`;
         if (this.tabDecoration.hasOwnProperty(key)) {
             return this.tabDecoration[key];
         }
@@ -144,17 +175,6 @@ class WhiteViz {
         let decorator: vscode.TextEditorDecorationType;
 
         if (this.expandMode) {
-            let editorConfigurations = vscode.workspace.getConfiguration("editor");
-
-            let tabSize = (
-                vscode.window.activeTextEditor &&
-                typeof(
-                    vscode.window.activeTextEditor.options.tabSize
-                ) === "number"
-            ) ? vscode.window.activeTextEditor.options.tabSize : parseInt(
-                editorConfigurations.get<string>("tabSize")
-            );
-
             let margin = configurations.get<number>("expandedTabMargin");
 
             decorator = this.createDecoration(
@@ -193,6 +213,20 @@ class WhiteViz {
             dark: config(this.darkColor)
         });
     }
+    
+    handleMessage(promise: Thenable<ActionItem>){
+        promise.then((item) => {
+            if (!item) {
+                return;
+            }
+            if (item.action) {
+                item.action();
+                if (!this.disableExtension) {
+                    this.updateDecorations();
+                }
+            }
+        });
+    }
 
     updateConfigurations(){
         this.clearDecorations();
@@ -200,6 +234,7 @@ class WhiteViz {
 
         let configurations = vscode.workspace.getConfiguration("whiteviz");
         this.overrideDefault = configurations.get<boolean>("overrideDefault");
+        this.disableExtension = !configurations.get<boolean>("enabled");
         this.maximumLimit = configurations.get<number>("maximumLimit");
         this.limitToVisible = configurations.get<boolean>(
             "limitToVisibleRange"
@@ -208,17 +243,59 @@ class WhiteViz {
         let editorConfigurations = vscode.workspace.getConfiguration(
             "editor",
             vscode.window.activeTextEditor ?
-            vscode.window.activeTextEditor.document.uri : undefined
+            vscode.window.activeTextEditor.document.uri : null
         );
         let renderWhitespace = editorConfigurations.get<string>(
             "renderWhitespace"
         );
+        let builtinSupported = this.isEqualOrNewerVersionThan(1, 37, 0);
+        
+        if (
+            !this.disableExtension &&
+            !this.overrideDefault &&
+            !this.hasShowSuggestion.selection &&
+            renderWhitespace !== "selection" &&
+            builtinSupported
+        ) {
+            this.hasShowSuggestion.selection = true;
+            this.handleMessage(vscode.window.showWarningMessage<ActionItem>(
+                "Visual Studio Code 1.37.0 or later now supported a built-in " +
+                "render whitespace on selection. WhiteViz extension kindly "+
+                "recommended you to use built-in feature if possible.", {
+                    title: "Use WhiteViz",
+                    action: () => {
+                        configurations.update(
+                            "overrideDefault", true, true
+                        );
+                        editorConfigurations.update(
+                            "renderWhitespace", "none", true
+                        );
+                    },
+                    isCloseAffordance: true
+                }, {
+                    title: "Always use built-in",
+                    action: () => {
+                        configurations.update(
+                            "enabled", false, true
+                        );
+                        editorConfigurations.update(
+                            "renderWhitespace", "selection", true
+                        );
+                    },
+                    isCloseAffordance: true
+                }, {
+                    title: "Ask Later",
+                    isCloseAffordance: true
+                }
+            ));
+        }
 
-        this.disableExtension = (
-            !this.overrideDefault && renderWhitespace !== "none"
-        );
-
-        if (this.disableExtension) {
+        if (
+            !this.disableExtension &&
+            !this.overrideDefault &&
+            renderWhitespace !== "none"
+        ) {
+            this.disableExtension = true;
             vscode.window.showInformationMessage(
                 `WhiteViz detected that you set "editor.renderWhitespace" to "${
                     renderWhitespace
@@ -298,8 +375,11 @@ class WhiteViz {
             return;
         }
 
+        let tabSize = this.getTabSize();
         let whitespaceRanges: vscode.Range[] = [];
-        let tabRanges: vscode.Range[] = [];
+        let tabRanges: {
+            [key: string]: vscode.Range[]
+        } = {};
         let lineEndingRanges: vscode.Range[] = [];
 
         editor.selections.forEach((selection) => {
@@ -390,12 +470,23 @@ class WhiteViz {
                     if (
                         this.tabPattern.indexOf(lineText[position]) >= 0
                     ) {
-                        tabRanges.push(
-                            new vscode.Range(
-                                currentLine, position,
-                                currentLine, position
-                            )
-                        );
+                        let key = position % tabSize;
+
+                        if (tabRanges[`${ key }`]) {
+                            tabRanges[`${ key }`].push(
+                                new vscode.Range(
+                                    currentLine, position,
+                                    currentLine, position
+                                )
+                            );
+                        } else {
+                            tabRanges[`${ key }`] = [
+                                new vscode.Range(
+                                    currentLine, position,
+                                    currentLine, position
+                                )
+                            ];
+                        }
                     } else if (
                         this.spacePattern.indexOf(lineText[position]) >= 0
                     ) {
@@ -414,6 +505,31 @@ class WhiteViz {
         if (this.lineEndingDecoration) {
             editor.setDecorations(this.lineEndingDecoration, lineEndingRanges);
         }
-        editor.setDecorations(this.getTabIndicator(editor), tabRanges);
+
+        let keys = Object.keys(tabRanges);
+        this.removeTabIndicator(editor, keys.map((key) => tabSize - (+key)));
+        for (const key of keys) {
+            editor.setDecorations(
+                this.getTabIndicator(editor, tabSize - (+key)),
+                tabRanges[key]
+            );
+        }
+    }
+
+    isEqualOrNewerVersionThan(major: number, minor: number, patch: number){
+        let targetVersions = [major, minor, patch];
+        let currentVersions = vscode.version.match(
+            "\\d+\\.\\d+\\.\\d+"
+        )[0].split(".").map((value)=>{
+            return parseInt(value);
+        });
+        for (let index = 0; index < targetVersions.length; index++) {
+            let targetVersion = targetVersions[index];
+            let currentVersion = currentVersions[index];
+            if(currentVersion < targetVersion){
+                return false;
+            }
+        }
+        return true;
     }
 }
